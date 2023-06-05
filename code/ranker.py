@@ -60,7 +60,7 @@ class BasePDGDRanker(BaseRanker):
         fx_grad_diff = vmap(torch.sub, in_dims=(0, None))(*(fx_grad, fx_grad))
         
         # Calculate final gradients
-        interaction_matrix = interactions @ (1 - interactions.t())
+        interaction_matrix = interactions.t() @ (1 - interactions)
         weights = (log_pos_bias_weight + fx_sum - 2 * fx_logsumexp).exp()        
         res = interaction_matrix.unsqueeze(2) * weights.unsqueeze(2) * fx_grad_diff
         
@@ -71,7 +71,7 @@ class LinearPDGDRanker(BasePDGDRanker):
         return params.dot(features)
     
 class Neural1LayerPDGDRanker(BasePDGDRanker):
-    def __init__(self, feature_size, hidden_size, activation):
+    def __init__(self, feature_size, hidden_size, activation=F.relu):
         self.feature_size = feature_size
         self.hidden_size = hidden_size
         self.activation = activation
@@ -83,7 +83,7 @@ class Neural1LayerPDGDRanker(BasePDGDRanker):
         return params[num_hidden_features:].dot(res)
     
 class Neural2LayerPDGDRanker(BasePDGDRanker):
-    def __init__(self, feature_size, hidden_size, hidden_size2, activation):
+    def __init__(self, feature_size, hidden_size, hidden_size2, activation=F.relu):
         self.feature_size = feature_size
         self.hidden_size = hidden_size
         self.hidden_size2 = hidden_size2
@@ -106,15 +106,15 @@ if __name__ == "__main__":
     num_data = 3
     X = torch.rand(num_data, num_features)
     ranking = torch.LongTensor([1, 0, 2])
-    interactions = torch.Tensor([1, 0, 1]).reshape(-1, 1)
+    interactions = torch.Tensor([1, 0, 1]).reshape(1, -1)
     
     ranker = LinearPDGDRanker()
     print(ranker.grad(torch.rand(num_features), X, ranking, interactions))
     
     hidden_size = 2
-    ranker2 = Neural1LayerPDGDRanker(num_features, hidden_size, F.relu)
+    ranker2 = Neural1LayerPDGDRanker(num_features, hidden_size)
     print(ranker2.grad(torch.rand((num_features + 1) * hidden_size), X, ranking, interactions))
     
     hidden_size2 = 2
-    ranker3 = Neural2LayerPDGDRanker(num_features, hidden_size, hidden_size2, F.relu)
+    ranker3 = Neural2LayerPDGDRanker(num_features, hidden_size, hidden_size2)
     print(ranker3.grad(torch.rand(num_features * hidden_size + hidden_size * hidden_size2 + hidden_size2), X, ranking, interactions))
