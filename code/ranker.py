@@ -71,6 +71,7 @@ class BasePDGDRanker(BaseRanker):
         fx_grad_diff = vmap(torch.sub, in_dims=(0, None))(*(fx_grad, fx_grad))
 
         # Calculate final gradients
+        interactions = interactions.reshape(1, -1)
         interaction_matrix = interactions.t() @ (1 - interactions)
         weights = (log_pos_bias_weight + fx_sum - 2 * fx_logsumexp).exp()
         res = interaction_matrix.unsqueeze(2) * weights.unsqueeze(2) * fx_grad_diff
@@ -120,12 +121,24 @@ class Neural2LayerPDGDRanker(BasePDGDRanker):
         return params[num_hidden_features_all:].dot(res2)
 
 
+class CollaborativeFilteringRecommender(BaseRanker):
+    def forward(self, user_embedding, item_embeddings):
+        return user_embedding.reshape(1, -1) @ item_embeddings.t()
+    
+    def federated_item_grad(self, user_embedding, item_embeddings, interactions, alpha=0):
+        user_embedding = user_embedding.reshape(1, -1)
+        interactions = interactions.reshape(1, -1)
+        confidence = 1 + alpha * interactions
+        fx = self.forward(user_embedding, item_embeddings)
+        return (confidence * (interactions - fx)).t() @ user_embedding
+    
+
 if __name__ == "__main__":
     num_features = 5
     num_data = 3
     X = torch.rand(num_data, num_features)
     ranking = torch.LongTensor([1, 0, 2])
-    interactions = torch.Tensor([1, 0, 1]).reshape(1, -1)
+    interactions = torch.Tensor([1, 0, 1])
 
     ranker = LinearPDGDRanker()
     print(ranker.grad(torch.rand(num_features), X, ranking, interactions))
@@ -150,3 +163,6 @@ if __name__ == "__main__":
             interactions,
         )
     )
+
+    cf_rec = CollaborativeFilteringRecommender()
+    print(cf_rec.federated_item_grad(torch.rand(5), torch.rand(3, 5), torch.Tensor([0,0,1])))
