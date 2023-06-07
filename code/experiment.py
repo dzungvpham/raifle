@@ -17,7 +17,8 @@ if __name__ == "__main__":
     features = torch.rand(num_data, num_features)
 
     interactions = torch.randint(0, 2, (num_data,))
-    print(interactions)
+    # interactions = torch.bernoulli(torch.ones(num_data) * 0.2)
+    print(interactions.long())
 
     # ranking = list(range(num_data))
     # random.shuffle(ranking)
