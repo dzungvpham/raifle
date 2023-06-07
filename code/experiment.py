@@ -12,8 +12,8 @@ from ranker import (
 )
 
 if __name__ == "__main__":
-    num_features = 10
-    num_data = 30
+    num_features = 100
+    num_data = 1000
     features = torch.rand(num_data, num_features)
 
     interactions = torch.randint(0, 2, (num_data,))
@@ -94,5 +94,6 @@ if __name__ == "__main__":
             num_features,
             lr=0.001,
             max_iters=100000,
+            num_rounds=10,
         )
     )
