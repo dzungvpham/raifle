@@ -25,14 +25,19 @@ def reconstruct_interactions(
     for _ in range(num_rounds):
         interaction_degree = nn.Parameter(torch.rand(num_items) * 2 - 1)
         optimizer = optim.LBFGS(
-            [interaction_degree], lr=lr, max_iter=max_iters, line_search_fn="strong_wolfe"
+            [interaction_degree],
+            lr=lr,
+            max_iter=max_iters,
+            line_search_fn="strong_wolfe",
         )
 
         def calc_loss():
             optimizer.zero_grad()
             interactions = interaction_degree.sigmoid()
             shadow_params = trainer(interactions)
-            loss = F.mse_loss(shadow_params, target_params) + prior_penalty(interactions)
+            loss = F.mse_loss(shadow_params, target_params) + prior_penalty(
+                interactions
+            )
             loss.backward()
             return loss
 

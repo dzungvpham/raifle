@@ -9,6 +9,9 @@ class BaseRanker:
     def __init__(self):
         pass
 
+    def gen_params(self):
+        raise NotImplementedError
+
     def forward(self):
         raise NotImplementedError
 
@@ -36,11 +39,13 @@ class BasePDGDRanker(BaseRanker):
             flipped_ranking[item1_idx], flipped_ranking[item2_idx] = item2, item1
             return flipped_ranking
 
-        flipped_rankings = torch.stack(
-            [flip_ranking(pair) for pair in itertools.combinations(range(num_items), 2)]
-        )
-        log_prob_swapped = vmap(self.log_ranking_prob, in_dims=(0, None))(
-            flipped_rankings, fx
+        log_prob_swapped = torch.tensor(
+            list(
+                map(
+                    lambda pair: self.log_ranking_prob(flip_ranking(pair), fx),
+                    itertools.combinations(range(num_items), 2),
+                )
+            )
         )
         log_prob_swapped_mtx = torch.zeros(num_items, num_items)
         log_prob_swapped_mtx[
@@ -80,6 +85,12 @@ class BasePDGDRanker(BaseRanker):
 
 
 class LinearPDGDRanker(BasePDGDRanker):
+    def __init__(self, feature_size):
+        self.feature_size = feature_size
+
+    def gen_params(self):
+        return torch.rand(self.feature_size)
+
     def forward(self, params, features):
         return params.dot(features)
 
@@ -89,6 +100,9 @@ class Neural1LayerPDGDRanker(BasePDGDRanker):
         self.feature_size = feature_size
         self.hidden_size = hidden_size
         self.activation = activation
+
+    def gen_params(self):
+        return torch.rand((self.feature_size + 1) * self.hidden_size)
 
     def forward(self, params, features):
         num_hidden_features = self.feature_size * self.hidden_size
@@ -103,6 +117,12 @@ class Neural2LayerPDGDRanker(BasePDGDRanker):
         self.hidden_size = hidden_size
         self.hidden_size2 = hidden_size2
         self.activation = activation
+
+    def gen_params(self):
+        return torch.rand(
+            self.hidden_size * (self.feature_size + self.hidden_size2)
+            + self.hidden_size2
+        )
 
     def forward(self, params, features):
         num_hidden_features = self.feature_size * self.hidden_size
@@ -124,14 +144,16 @@ class Neural2LayerPDGDRanker(BasePDGDRanker):
 class CollaborativeFilteringRecommender(BaseRanker):
     def forward(self, user_embedding, item_embeddings):
         return user_embedding.reshape(1, -1) @ item_embeddings.t()
-    
-    def federated_item_grad(self, user_embedding, item_embeddings, interactions, alpha=0):
+
+    def federated_item_grad(
+        self, user_embedding, item_embeddings, interactions, alpha=0
+    ):
         user_embedding = user_embedding.reshape(1, -1)
         interactions = interactions.reshape(1, -1)
         confidence = 1 + alpha * interactions
         fx = self.forward(user_embedding, item_embeddings)
         return (confidence * (interactions - fx)).t() @ user_embedding
-    
+
 
 if __name__ == "__main__":
     num_features = 5
@@ -165,4 +187,8 @@ if __name__ == "__main__":
     )
 
     cf_rec = CollaborativeFilteringRecommender()
-    print(cf_rec.federated_item_grad(torch.rand(5), torch.rand(3, 5), torch.Tensor([0,0,1])))
+    print(
+        cf_rec.federated_item_grad(
+            torch.rand(5), torch.rand(3, 5), torch.Tensor([0, 0, 1])
+        )
+    )
