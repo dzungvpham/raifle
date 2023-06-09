@@ -9,6 +9,7 @@ def reconstruct_interactions(
     trainer,
     target_params,
     num_items,
+    private_params_size=0,
     lr=0.1,
     max_iters=100,
     num_rounds=10,
@@ -19,13 +20,12 @@ def reconstruct_interactions(
         prior_penalty = lambda _: torch.zeros(1)
 
     best_loss = math.inf
-    global best_interaction_degree
-    global best_private_params
+    global best_opt_params
 
     for _ in range(num_rounds):
-        interaction_degree = nn.Parameter(torch.rand(num_items) * 2 - 1)
+        opt_params = nn.Parameter(torch.rand(num_items + private_params_size) * 2 - 1)
         optimizer = optim.LBFGS(
-            [interaction_degree],
+            [opt_params],
             lr=lr,
             max_iter=max_iters,
             line_search_fn="strong_wolfe",
@@ -33,8 +33,12 @@ def reconstruct_interactions(
 
         def calc_loss():
             optimizer.zero_grad()
-            interactions = interaction_degree.sigmoid()
-            shadow_params = trainer(interactions)
+            interactions = opt_params[:num_items].sigmoid()
+            shadow_params = (
+                trainer(interactions)
+                if private_params_size == 0
+                else trainer(interactions, opt_params[num_items:])
+            )
             loss = F.mse_loss(shadow_params, target_params) + prior_penalty(
                 interactions
             )
@@ -47,65 +51,18 @@ def reconstruct_interactions(
 
         if cur_loss < best_loss:
             best_loss = cur_loss
-            best_interaction_degree = interaction_degree
+            best_opt_params = opt_params
 
-    if return_raw:
-        return best_interaction_degree.detach()
+    if private_params_size == 0:
+        if return_raw:
+            return best_opt_params.detach()
+        else:
+            return best_opt_params.sigmoid().round().long().detach()
     else:
-        return best_interaction_degree.sigmoid().round().long().detach()
-
-
-def reconstruct_interactions_with_private_params(
-    trainer,
-    target_params,
-    num_items,
-    private_params_size,
-    lr=0.1,
-    max_iters=100,
-    num_rounds=10,
-    return_raw=False,
-    prior_penalty=None,
-):
-    if prior_penalty is None:
-        prior_penalty = lambda _: torch.zeros(1)
-
-    best_loss = math.inf
-    global best_interaction_degree
-    global best_private_params
-
-    for _ in range(num_rounds):
-        interaction_degree = nn.Parameter(torch.rand(num_items) * 2 - 1)
-        private_params = nn.Parameter(torch.rand(private_params_size) * 2 - 1)
-        optimizer = optim.LBFGS(
-            [interaction_degree, private_params],
-            lr=lr,
-            max_iter=max_iters,
-            line_search_fn="strong_wolfe",
-        )
-
-        def calc_loss():
-            optimizer.zero_grad()
-            interactions = interaction_degree.sigmoid()
-            shadow_params = trainer(interactions, private_params)
-            loss = F.mse_loss(shadow_params, target_params) + prior_penalty(
-                interactions
+        if return_raw:
+            return (best_opt_params[:num_items].detach(), best_opt_params[num_items:].detach())
+        else:
+            return (
+                best_opt_params[:num_items].sigmoid().round().long().detach(),
+                best_opt_params[num_items:].detach(),
             )
-            loss.backward()
-            return loss
-
-        optimizer.step(calc_loss)
-
-        cur_loss = optimizer.state[list(optimizer.state)[0]]["prev_loss"]
-
-        if cur_loss < best_loss:
-            best_loss = cur_loss
-            best_interaction_degree = interaction_degree
-            best_private_params = private_params
-
-    if return_raw:
-        return (best_interaction_degree.detach(), best_private_params.detach())
-    else:
-        return (
-            best_interaction_degree.sigmoid().round().long().detach(),
-            best_private_params.detach(),
-        )
