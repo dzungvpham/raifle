@@ -22,7 +22,7 @@ class Metrics:
             'extra_data': [],
         })
 
-    def update(self, name, target, preds, preds_raw=None, extra_data=None):
+    def update(self, name, target, preds, preds_raw=None, extra_data={}):
         row = {
             'name': name,
             'accuracy': accuracy_score(target, preds),
@@ -31,7 +31,7 @@ class Metrics:
             'recall': recall_score(target, preds),
             'auc': None if preds_raw is None else roc_auc_score(target, preds_raw),
             'auc-pr': None if preds_raw is None else average_precision_score(target, preds_raw),
-            'extra_data': None if extra_data is None else json.dumps(extra_data),
+            'extra_data': json.dumps(extra_data),
         }
         self.df.loc[len(self.df.index), :] = row
 
