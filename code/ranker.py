@@ -89,7 +89,7 @@ class LinearPDGDRanker(BasePDGDRanker):
         self.feature_size = feature_size
 
     def gen_params(self):
-        return torch.rand(self.feature_size)
+        return torch.rand(self.feature_size) * 2 - 1
 
     def forward(self, params, features):
         return params.dot(features)
@@ -102,7 +102,7 @@ class Neural1LayerPDGDRanker(BasePDGDRanker):
         self.activation = activation
 
     def gen_params(self):
-        return torch.rand((self.feature_size + 1) * self.hidden_size)
+        return torch.rand((self.feature_size + 1) * self.hidden_size) * 2 - 1
 
     def forward(self, params, features):
         num_hidden_features = self.feature_size * self.hidden_size
@@ -122,7 +122,7 @@ class Neural2LayerPDGDRanker(BasePDGDRanker):
         return torch.rand(
             self.hidden_size * (self.feature_size + self.hidden_size2)
             + self.hidden_size2
-        )
+        ) * 2 - 1
 
     def forward(self, params, features):
         num_hidden_features = self.feature_size * self.hidden_size
