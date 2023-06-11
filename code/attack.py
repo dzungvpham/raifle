@@ -66,3 +66,22 @@ def reconstruct_interactions(
                 best_opt_params[:num_items].sigmoid().round().long().detach(),
                 best_opt_params[num_items:].detach(),
             )
+
+# Reproduction of the interaction inference attack method in https://arxiv.org/pdf/2301.10964.pdf
+def interaction_mia_fedrec(
+    trainer,
+    target_params,
+    num_items,
+    pos_ratio=0.25,
+    select_ratio=0.2,
+):
+    best_guess = torch.zeros(num_items)
+
+    while best_guess.sum() < pos_ratio * num_items:
+        guess = best_guess.logical_or(torch.bernoulli(torch.ones(num_items) * pos_ratio))
+        shadow_params = trainer(guess.long())
+        dist = (shadow_params - target_params).pow(2).sum(dim=1).sqrt()
+        selected_guess = guess.logical_and(dist <= dist.quantile(select_ratio))
+        best_guess = best_guess.logical_or(selected_guess)
+
+    return best_guess
