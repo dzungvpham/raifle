@@ -1,4 +1,5 @@
 import itertools
+import random
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -119,10 +120,11 @@ class Neural2LayerPDGDRanker(BasePDGDRanker):
         self.activation = activation
 
     def gen_params(self):
-        return torch.rand(
+        size = (
             self.hidden_size * (self.feature_size + self.hidden_size2)
             + self.hidden_size2
-        ) * 2 - 1
+        )
+        return torch.rand(size) * 2 - 1
 
     def forward(self, params, features):
         num_hidden_features = self.feature_size * self.hidden_size
@@ -155,40 +157,90 @@ class CollaborativeFilteringRecommender(BaseRanker):
         return (confidence * (interactions - fx)).t() @ user_embedding
 
 
+class NeuralCollaborativeFilteringRecommender(nn.Module):
+    def __init__(self, embedding_size, hidden_sizes):
+        super().__init__()
+        self.first_layer = nn.Linear(embedding_size * 2, hidden_sizes[0])
+        self.layers = []
+        for i in range(len(hidden_sizes) - 1):
+            self.layers.append(nn.Linear(hidden_sizes[i], hidden_sizes[i + 1]))
+        self.final_layer = nn.Linear(hidden_sizes[-1], 1)
+
+    def forward(self, user_embedding, item_embeddings):
+        embeddings = torch.cat(
+            [user_embedding.expand(item_embeddings.shape[0], -1), item_embeddings], dim=1
+        )
+        res = F.relu(self.first_layer(embeddings))
+        for layer in self.layers:
+            res = F.relu(layer(res))
+        return F.sigmoid(self.final_layer(res))
+
+    def item_grad(self, user_embedding, item_embeddings, interactions):
+        for p in self.parameters():
+            p.requires_grad = False
+        def f(item_embeddings):
+            preds = self.forward(user_embedding, item_embeddings)
+            loss = F.binary_cross_entropy(preds.view(-1), interactions)
+            return loss
+        return grad(f)(item_embeddings)
+    
+    def feature_grad(self, user_embedding, item_embeddings, interactions, retain_graph=False):
+        for p in self.parameters():
+            p.requires_grad = True
+            if p.grad is not None:
+                p.grad.zero_()
+        
+        preds = self.forward(user_embedding, item_embeddings)
+        loss = F.binary_cross_entropy(preds.view(-1), interactions)
+        loss.backward(retain_graph=retain_graph)
+        
+        feature_grads = []
+        for p in self.parameters():
+            feature_grads.append(p.grad.clone().flatten())
+            p.grad.zero_()
+            p.requires_grad = False
+        
+        return torch.cat(feature_grads)
+
 if __name__ == "__main__":
     num_features = 5
     num_data = 3
     X = torch.rand(num_data, num_features)
-    ranking = torch.LongTensor([1, 0, 2])
-    interactions = torch.Tensor([1, 0, 1])
+    ranking = list(range(num_data))
+    random.shuffle(ranking)
+    ranking = torch.LongTensor(ranking)
+    interactions = torch.randint(0, 2, (num_data,))
+    while interactions.sum() == 0:
+        interactions = torch.randint(0, 2, (num_data,))
+    user_embedding = torch.rand(num_features)
 
-    ranker = LinearPDGDRanker()
-    print(ranker.grad(torch.rand(num_features), X, ranking, interactions))
+    # ranker = LinearPDGDRanker(num_features)
+    # print(ranker.grad(torch.rand(num_features), X, ranking, interactions))
 
-    hidden_size = 2
-    ranker2 = Neural1LayerPDGDRanker(num_features, hidden_size)
-    print(
-        ranker2.grad(
-            torch.rand((num_features + 1) * hidden_size), X, ranking, interactions
-        )
-    )
+    # hidden_size = 2
+    # ranker2 = Neural1LayerPDGDRanker(num_features, hidden_size)
+    # print(
+    #     ranker2.grad(
+    #         torch.rand((num_features + 1) * hidden_size), X, ranking, interactions
+    #     )
+    # )
 
-    hidden_size2 = 2
-    ranker3 = Neural2LayerPDGDRanker(num_features, hidden_size, hidden_size2)
-    print(
-        ranker3.grad(
-            torch.rand(
-                num_features * hidden_size + hidden_size * hidden_size2 + hidden_size2
-            ),
-            X,
-            ranking,
-            interactions,
-        )
-    )
+    # hidden_size2 = 2
+    # ranker3 = Neural2LayerPDGDRanker(num_features, hidden_size, hidden_size2)
+    # print(
+    #     ranker3.grad(
+    #         torch.rand(
+    #             num_features * hidden_size + hidden_size * hidden_size2 + hidden_size2
+    #         ),
+    #         X,
+    #         ranking,
+    #         interactions,
+    #     )
+    # )
+    
+    # cf_rec = CollaborativeFilteringRecommender()
+    # print(cf_rec.federated_item_grad(user_embedding, X, interactions))
 
-    cf_rec = CollaborativeFilteringRecommender()
-    print(
-        cf_rec.federated_item_grad(
-            torch.rand(5), torch.rand(3, 5), torch.Tensor([0, 0, 1])
-        )
-    )
+    ncf_rec = NeuralCollaborativeFilteringRecommender(num_features, [2])
+    print(ncf_rec.item_grad(user_embedding, X, interactions.float()))
+    print(ncf_rec.feature_grad(user_embedding, X, interactions.float()))

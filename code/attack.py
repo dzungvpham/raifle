@@ -10,11 +10,11 @@ def reconstruct_interactions(
     target_params,
     num_items,
     private_params_size=0,
-    lr=0.1,
-    max_iters=100,
-    num_rounds=10,
+    loss_func=F.mse_loss,
+    num_rounds=1,
     return_raw=False,
     prior_penalty=None,
+    **kwargs,
 ):
     if prior_penalty is None:
         prior_penalty = lambda _: torch.zeros(1)
@@ -26,9 +26,8 @@ def reconstruct_interactions(
         opt_params = nn.Parameter(torch.rand(num_items + private_params_size) * 2 - 1)
         optimizer = optim.LBFGS(
             [opt_params],
-            lr=lr,
-            max_iter=max_iters,
             line_search_fn="strong_wolfe",
+            **kwargs,
         )
 
         def calc_loss():
@@ -39,32 +38,38 @@ def reconstruct_interactions(
                 if private_params_size == 0
                 else trainer(interactions, opt_params[num_items:])
             )
-            loss = F.mse_loss(shadow_params, target_params) + prior_penalty(
-                interactions
-            )
+            loss = loss_func(shadow_params, target_params) + prior_penalty(interactions)
             loss.backward()
             return loss
 
-        optimizer.step(calc_loss)
+        try:
+            optimizer.step(calc_loss)
+        except Exception as e:
+            print(e)
+            continue
 
-        cur_loss = optimizer.state[list(optimizer.state)[0]]["prev_loss"]
+        optimizer_state = optimizer.state[list(optimizer.state)[0]]
+        if "prev_loss" not in optimizer_state:
+            continue
+        else:
+            cur_loss = optimizer_state["prev_loss"]
 
         if cur_loss < best_loss:
             best_loss = cur_loss
-            best_opt_params = opt_params
+            best_opt_params = opt_params.detach()
 
     if private_params_size == 0:
         if return_raw:
-            return best_opt_params.detach()
+            return best_opt_params
         else:
-            return best_opt_params.sigmoid().round().long().detach()
+            return best_opt_params.sigmoid().round().long()
     else:
         if return_raw:
-            return (best_opt_params[:num_items].detach(), best_opt_params[num_items:].detach())
+            return (best_opt_params[:num_items], best_opt_params[num_items:])
         else:
             return (
-                best_opt_params[:num_items].sigmoid().round().long().detach(),
-                best_opt_params[num_items:].detach(),
+                best_opt_params[:num_items].sigmoid().round().long(),
+                best_opt_params[num_items:],
             )
 
 # Reproduction of the interaction inference attack method in https://arxiv.org/pdf/2301.10964.pdf
