@@ -161,9 +161,10 @@ class NeuralCollaborativeFilteringRecommender(nn.Module):
     def __init__(self, embedding_size, hidden_sizes):
         super().__init__()
         self.first_layer = nn.Linear(embedding_size * 2, hidden_sizes[0])
-        self.layers = []
+        self.fc_layers = []
         for i in range(len(hidden_sizes) - 1):
-            self.layers.append(nn.Linear(hidden_sizes[i], hidden_sizes[i + 1]))
+            self.fc_layers.append(nn.Linear(hidden_sizes[i], hidden_sizes[i + 1]))
+        self.fc_layers = nn.ModuleList(self.fc_layers)
         self.final_layer = nn.Linear(hidden_sizes[-1], 1)
 
     def forward(self, user_embedding, item_embeddings):
@@ -171,7 +172,7 @@ class NeuralCollaborativeFilteringRecommender(nn.Module):
             [user_embedding.expand(item_embeddings.shape[0], -1), item_embeddings], dim=1
         )
         res = F.relu(self.first_layer(embeddings))
-        for layer in self.layers:
+        for layer in self.fc_layers:
             res = F.relu(layer(res))
         return F.sigmoid(self.final_layer(res))
 
@@ -254,6 +255,7 @@ if __name__ == "__main__":
     # cf_rec = CollaborativeFilteringRecommender()
     # print(cf_rec.federated_item_grad(user_embedding, X, interactions))
 
-    ncf_rec = NeuralCollaborativeFilteringRecommender(num_features, [2])
+    ncf_rec = NeuralCollaborativeFilteringRecommender(num_features, [4, 2])
+    print(list(ncf_rec.parameters()))
     print(ncf_rec.item_grad(user_embedding, X, interactions.float()))
     print(ncf_rec.feature_grad(user_embedding, X, interactions.float()))

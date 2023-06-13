@@ -47,7 +47,7 @@ def reconstruct_interactions(
         try:
             optimizer.step(calc_loss)
         except Exception as e:
-            print(e)
+            print("An exception occurred:", e)
             continue
 
         optimizer_state = optimizer.state[list(optimizer.state)[0]]
