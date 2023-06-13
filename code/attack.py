@@ -22,7 +22,7 @@ def reconstruct_interactions(
         prior_penalty = lambda _: torch.zeros(1)
 
     best_loss = math.inf
-    global best_opt_paramsold_item_set_embedding
+    global best_opt_params
 
     for _ in range(num_rounds):
         opt_params = nn.Parameter(torch.rand(num_items + private_params_size) * 2 - 1)
