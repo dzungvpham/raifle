@@ -184,6 +184,14 @@ class NeuralCollaborativeFilteringRecommender(nn.Module):
             return loss
         return grad(f)(item_embeddings)
     
+    def item_grad_using_backward(self, user_embedding, item_embeddings, interactions, retain_graph=False):
+        for p in self.parameters():
+            p.requires_grad = False
+        preds = self.forward(user_embedding, item_embeddings)
+        loss = F.binary_cross_entropy(preds.view(-1), interactions)
+        loss.backward(retain_graph=retain_graph)
+        return item_embeddings.grad
+    
     def feature_grad(self, user_embedding, item_embeddings, interactions, retain_graph=False):
         for p in self.parameters():
             p.requires_grad = True
@@ -204,15 +212,20 @@ class NeuralCollaborativeFilteringRecommender(nn.Module):
 
 if __name__ == "__main__":
     num_features = 5
-    num_data = 3
-    X = torch.rand(num_data, num_features)
-    ranking = list(range(num_data))
-    random.shuffle(ranking)
-    ranking = torch.LongTensor(ranking)
+    num_data = 100
+    # X = torch.rand(num_data, num_features)
+    # user_embedding = torch.rand(num_features)
+    X = torch.normal(0, 1, (num_data, num_features))
+    user_embedding = torch.normal(0, 1, (num_features,))
+
     interactions = torch.randint(0, 2, (num_data,))
-    while interactions.sum() == 0:
+    while interactions.sum() == 0 or interactions.sum() == num_data:
         interactions = torch.randint(0, 2, (num_data,))
-    user_embedding = torch.rand(num_features)
+    print(interactions)
+
+    # ranking = list(range(num_data))
+    # random.shuffle(ranking)
+    # ranking = torch.LongTensor(ranking)
 
     # ranker = LinearPDGDRanker(num_features)
     # print(ranker.grad(torch.rand(num_features), X, ranking, interactions))
