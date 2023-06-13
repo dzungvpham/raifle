@@ -1,4 +1,6 @@
+import copy
 import math
+import random
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -20,7 +22,7 @@ def reconstruct_interactions(
         prior_penalty = lambda _: torch.zeros(1)
 
     best_loss = math.inf
-    global best_opt_params
+    global best_opt_paramsold_item_set_embedding
 
     for _ in range(num_rounds):
         opt_params = nn.Parameter(torch.rand(num_items + private_params_size) * 2 - 1)
@@ -72,21 +74,43 @@ def reconstruct_interactions(
                 best_opt_params[num_items:],
             )
 
-# Reproduction of the interaction inference attack method in https://arxiv.org/pdf/2301.10964.pdf
-def interaction_mia_fedrec(
-    trainer,
-    target_params,
-    num_items,
-    pos_ratio=0.25,
-    select_ratio=0.2,
-):
-    best_guess = torch.zeros(num_items)
+# Adaptation of IMIA code from https://github.com/hi-weiyuan/FedRec_IMIA/
+def interaction_mia_fedrec(trainer, target_params, num_items, select_ratio=0.2):
+    all_items = list(range(num_items))
+    confirmed_pos = []
+    confirmed_neg = []
+    expected_pos_num = int(select_ratio * num_items)
 
-    while best_guess.sum() < pos_ratio * num_items:
-        guess = best_guess.logical_or(torch.bernoulli(torch.ones(num_items) * pos_ratio))
-        shadow_params = trainer(guess.long())
-        dist = (shadow_params - target_params).pow(2).sum(dim=1).sqrt()
-        selected_guess = guess.logical_and(dist <= dist.quantile(select_ratio))
-        best_guess = best_guess.logical_or(selected_guess)
+    un_confirmed = copy.deepcopy(all_items)
+    random.shuffle(un_confirmed)
+    random_selected = un_confirmed[:expected_pos_num]
 
-    return best_guess
+    while len(confirmed_pos) < expected_pos_num or len(un_confirmed) > expected_pos_num:
+        new_ratings = torch.zeros(num_items)
+        new_ratings[random_selected] = 1.0
+        shadow_params = trainer(new_ratings)
+
+        difference = F.pairwise_distance(shadow_params, target_params)
+        indexes = torch.argsort(difference, descending=False).tolist()
+        num = 0
+        for item in indexes:
+            if item not in confirmed_neg and item not in confirmed_pos:
+                if item in random_selected:
+                    confirmed_pos.append(item)
+                else:
+                    confirmed_neg.append(item)
+                num += 1
+
+            if num > (0.9 * num_items):
+                break
+        
+        if len(confirmed_pos) >= expected_pos_num:
+            break
+
+        un_confirmed = list(set(all_items) - set(confirmed_neg + confirmed_pos))
+        random.shuffle(un_confirmed)        
+        random_selected = confirmed_pos + un_confirmed[:expected_pos_num - len(confirmed_pos)]
+    
+    final_ratings = torch.zeros(num_items)
+    final_ratings[confirmed_pos] = 1.0
+    return final_ratings
