@@ -1,4 +1,5 @@
 import json
+import numpy as np
 import pandas as pd
 from sklearn.metrics import (
     accuracy_score,
@@ -43,3 +44,27 @@ class Metrics:
 
     def load(self, path):
         self.df = pd.read_csv(path)
+
+class ClickModel():
+    def __init__(self):
+        raise NotImplementedError
+    
+    def click(self):
+        raise NotImplementedError
+
+class CascadeClickModel(ClickModel):
+    def __init__(self, prob_click, prob_stop):
+        self.prob_click = prob_click
+        self.prob_stop = prob_stop
+
+    def click(self, ranking, relevance):
+        n = len(ranking)
+        clicks = [False] * n
+        while not np.any(clicks):
+            for i in range(n):
+                r = relevance[ranking[i]]
+                clicks[i] = np.random.rand() < self.prob_click[r]
+                if clicks[i] and np.random.rand() < self.prob_stop[r]:
+                    break
+
+        return clicks

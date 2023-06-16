@@ -18,6 +18,9 @@ class BaseRanker:
 
     def grad(self):
         raise NotImplementedError
+    
+    def rank(self):
+        raise NotImplementedError
 
 
 class BasePDGDRanker(BaseRanker):
@@ -83,6 +86,17 @@ class BasePDGDRanker(BaseRanker):
         res = interaction_matrix.unsqueeze(2) * weights.unsqueeze(2) * fx_grad_diff
 
         return res.sum(dim=(0, 1))
+    
+    def rank(self, params, features, sample=True):
+        scores = self.forward_multiple(params, features).reshape(-1)
+
+        if not sample: # Sort the indices then reverse
+            return torch.argsort(scores, descending=True)
+
+        if scores.min() <= 0: # Rescale so scores are positive
+            scores -= scores.min()
+            scores += 1e-10
+        return torch.multinomial(scores, num_samples=features.shape[0])
 
 
 class LinearPDGDRanker(BasePDGDRanker):
