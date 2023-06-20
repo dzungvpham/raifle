@@ -60,7 +60,7 @@ class CascadeClickModel(ClickModel):
     def click(self, ranking, relevance):
         n = len(ranking)
         clicks = [False] * n
-        while not np.any(clicks):
+        while (not np.any(clicks)) or np.all(clicks):
             for i in range(n):
                 r = relevance[ranking[i]]
                 clicks[i] = np.random.rand() < self.prob_click[r]
