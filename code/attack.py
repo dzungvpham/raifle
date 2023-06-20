@@ -26,11 +26,7 @@ def reconstruct_interactions(
 
     for _ in range(num_rounds):
         opt_params = nn.Parameter(torch.rand(num_items + private_params_size) * 2 - 1)
-        optimizer = optim.LBFGS(
-            [opt_params],
-            line_search_fn="strong_wolfe",
-            **kwargs,
-        )
+        optimizer = optim.LBFGS([opt_params], line_search_fn="strong_wolfe", **kwargs)
 
         def calc_loss():
             optimizer.zero_grad()
@@ -62,16 +58,17 @@ def reconstruct_interactions(
 
     if private_params_size == 0:
         if return_raw:
-            return best_opt_params
+            return (best_opt_params, best_loss)
         else:
-            return best_opt_params.sigmoid().round().long()
+            return (best_opt_params.sigmoid().round().long(), best_loss)
     else:
         if return_raw:
-            return (best_opt_params[:num_items], best_opt_params[num_items:])
+            return (best_opt_params[:num_items], best_opt_params[num_items:], best_loss)
         else:
             return (
                 best_opt_params[:num_items].sigmoid().round().long(),
                 best_opt_params[num_items:],
+                best_loss,
             )
 
 # Adaptation of IMIA code from https://github.com/hi-weiyuan/FedRec_IMIA/
