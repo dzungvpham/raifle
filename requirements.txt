@@ -12,6 +12,7 @@ cryptography==39.0.1
 cycler==0.11.0
 debugpy==1.5.1
 decorator==5.1.1
+diffprivlib==0.6.2
 executing==0.8.3
 filelock==3.9.0
 fonttools==4.25.0
