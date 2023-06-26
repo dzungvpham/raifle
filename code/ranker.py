@@ -161,7 +161,7 @@ class CollaborativeFilteringRecommender(BaseRanker):
     def forward(self, user_embedding, item_embeddings):
         return user_embedding.reshape(1, -1) @ item_embeddings.t()
 
-    def federated_item_grad(
+    def item_grad(
         self, user_embedding, item_embeddings, interactions, alpha=0
     ):
         user_embedding = user_embedding.reshape(1, -1)

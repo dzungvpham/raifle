@@ -12,6 +12,7 @@ def reconstruct_interactions(
     target_params,
     num_items,
     private_params_size=0,
+    interaction_scale=1.0,
     loss_func=F.mse_loss,
     num_rounds=1,
     return_raw=False,
@@ -30,7 +31,7 @@ def reconstruct_interactions(
 
         def calc_loss():
             optimizer.zero_grad()
-            interactions = opt_params[:num_items].sigmoid()
+            interactions = opt_params[:num_items].sigmoid() * interaction_scale
             shadow_params = (
                 trainer(interactions)
                 if private_params_size == 0
@@ -60,13 +61,13 @@ def reconstruct_interactions(
         if return_raw:
             return (best_opt_params, best_loss)
         else:
-            return (best_opt_params.sigmoid().round().long(), best_loss)
+            return ((interaction_scale * best_opt_params.sigmoid()).round().long(), best_loss)
     else:
         if return_raw:
             return (best_opt_params[:num_items], best_opt_params[num_items:], best_loss)
         else:
             return (
-                best_opt_params[:num_items].sigmoid().round().long(),
+                (interaction_scale * best_opt_params[:num_items].sigmoid()).round().long(),
                 best_opt_params[num_items:],
                 best_loss,
             )
