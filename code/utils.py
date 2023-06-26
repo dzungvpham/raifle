@@ -83,10 +83,10 @@ class CascadeClickModel(ClickModel):
 
 # Clip and add Gaussian noise to a torch tensor
 def apply_gaussian_mechanism(input, epsilon, delta, sensitivity):
-    mechanism = (Gaussian if epsilon <= 1.0 else GaussianAnalytic)(
-        epsilon=epsilon, delta=delta, sensitivity=sensitivity
-    )
     # Clip L2 norm to sensitivity
     output = input * min(1.0, sensitivity / torch.linalg.vector_norm(input))
     # Add noise
+    mechanism = (Gaussian if epsilon <= 1.0 else GaussianAnalytic)(
+        epsilon=epsilon, delta=delta, sensitivity=sensitivity
+    )
     return output.apply_(mechanism.randomise)
