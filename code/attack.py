@@ -5,6 +5,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
+import traceback
 
 
 def reconstruct_interactions(
@@ -23,7 +24,7 @@ def reconstruct_interactions(
         prior_penalty = lambda _: torch.zeros(1)
 
     best_loss = math.inf
-    global best_opt_params
+    best_opt_params = torch.rand(num_items + private_params_size) * 2 - 1
 
     for _ in range(num_rounds):
         opt_params = nn.Parameter(torch.rand(num_items + private_params_size) * 2 - 1)
@@ -43,12 +44,14 @@ def reconstruct_interactions(
 
         try:
             optimizer.step(calc_loss)
-        except Exception as e:
-            print("An exception occurred:", e)
+        except Exception:
+            print("An exception occurred in the optimization step!")
+            traceback.print_exc()
             continue
 
         optimizer_state = optimizer.state[list(optimizer.state)[0]]
         if "prev_loss" not in optimizer_state:
+            print("Optimization did not take any step!")
             continue
         else:
             cur_loss = optimizer_state["prev_loss"]
