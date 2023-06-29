@@ -1,4 +1,5 @@
 import json
+import math
 import numpy as np
 import pandas as pd
 import torch
@@ -83,6 +84,8 @@ class CascadeClickModel(ClickModel):
 
 # Clip and add Gaussian noise to a torch tensor
 def apply_gaussian_mechanism(input, epsilon, delta, sensitivity):
+    if math.isinf(epsilon):
+        return input
     # Clip L2 norm to sensitivity
     output = input * min(1.0, sensitivity / torch.linalg.vector_norm(input))
     # Add noise
