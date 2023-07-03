@@ -86,8 +86,8 @@ class CascadeClickModel(ClickModel):
 def apply_gaussian_mechanism(input, epsilon, delta, sensitivity):
     if math.isinf(epsilon):
         return input
-    # Clip L2 norm to sensitivity
-    output = input * min(1.0, sensitivity / torch.linalg.vector_norm(input))
+    # Clip L2 norm to 0.5 * sensitivity (since global L2 sensitivity = 2 * max L2 norm)
+    output = input * min(1.0, 0.5 * sensitivity / torch.linalg.vector_norm(input))
     # Add noise
     mechanism = (Gaussian if epsilon <= 1.0 else GaussianAnalytic)(
         epsilon=epsilon, delta=delta, sensitivity=sensitivity
