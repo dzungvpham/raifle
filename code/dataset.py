@@ -81,10 +81,10 @@ class RecommendationDataset:
 
 
 class MovieLens(RecommendationDataset):
-    def __init__(self, path="../dataset/ML-100K/u.data"):
+    def __init__(self, path="../dataset/ML-100K/u.data", sep="\t"):
         df = pd.read_csv(
             path,
-            sep="\t",
+            sep=sep,
             header=None,
             names=["user_id", "item_id", "rating"],
             usecols=["user_id", "item_id", "rating"],
