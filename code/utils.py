@@ -18,19 +18,22 @@ from sklearn.metrics import (
 
 
 class Metrics:
-    def __init__(self):
-        self.df = pd.DataFrame(
-            {
-                "name": [],
-                "accuracy": [],
-                "f1": [],
-                "precision": [],
-                "recall": [],
-                "auc": [],
-                "auc-pr": [],
-                "extra_data": [],
-            }
-        )
+    def __init__(self, path=None):
+        if path is not None:
+            self.df = pd.read_csv(path)
+        else:
+            self.df = pd.DataFrame(
+                {
+                    "name": [],
+                    "accuracy": [],
+                    "f1": [],
+                    "precision": [],
+                    "recall": [],
+                    "auc": [],
+                    "auc-pr": [],
+                    "extra_data": [],
+                }
+            )
 
     def update(self, name, target, preds, preds_raw=None, extra_data={}):
         row = {
@@ -55,6 +58,9 @@ class Metrics:
 
     def load(self, path):
         self.df = pd.read_csv(path)
+
+    def print_summary(self, metrics=["auc"]):
+        print(self.df[["name"] + metrics].groupby("name").describe().to_string())
 
 
 class ClickModel:
