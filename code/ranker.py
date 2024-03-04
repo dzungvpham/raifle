@@ -90,7 +90,7 @@ class BasePDGDRanker(BaseRanker):
     def rank(self, params, features, sample=True):
         scores = self.forward_multiple(params, features).reshape(-1)
 
-        if not sample: # Sort the indices then reverse
+        if not sample: # Sort the indices by scores
             return torch.argsort(scores, descending=True)
 
         if scores.min() <= 0: # Rescale so scores are positive

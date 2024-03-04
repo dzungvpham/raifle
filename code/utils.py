@@ -3,6 +3,9 @@ import math
 import numpy as np
 import pandas as pd
 import torch
+from dataset import (
+    LearningToRankDataset,
+)
 from diffprivlib.mechanisms import (
     Gaussian,
     GaussianAnalytic,
@@ -76,17 +79,58 @@ class CascadeClickModel(ClickModel):
         self.prob_click = prob_click
         self.prob_stop = prob_stop
 
-    def click(self, ranking, relevance):
+    def click(self, ranking, relevance, filter_all_or_zero=True):
         n = len(ranking)
         clicks = [False] * n
-        while (not np.any(clicks)) or np.all(clicks):
+        while True:
             for i in range(n):
                 r = relevance[ranking[i]]
                 clicks[i] = np.random.rand() < self.prob_click[r]
                 if clicks[i] and np.random.rand() < self.prob_stop[r]:
                     break
+            
+            if (not filter_all_or_zero or ((np.any(clicks)) and not np.all(clicks))):
+                break
 
         return clicks
+    
+class LtrEvaluator():
+    def __init__(self, dataset: LearningToRankDataset, rank_cnt: int):
+        self._dataset = dataset
+        self._qids = dataset.get_all_query_ids()
+        self._rank_cnt = rank_cnt
+        self._idcg_map = {}
+        self._dcg_weight = 1/np.log2(np.arange(2, rank_cnt + 2))
+
+        # Pre-populate ideal DCG for all queries
+        for qid in self._qids:
+            relevance = dataset.get_data_for_queries([qid])[0][0].copy()
+            relevance.sort()  # Ascending
+            # Reverse and grab top k
+            relevance = relevance[:-(self._rank_cnt+1):-1]
+            self._idcg_map[qid] = np.sum(
+                (2 ** np.array(relevance) - 1) * self._dcg_weight[:len(relevance)])
+
+    def calculate_average_offline_ndcg(self, model, params) -> float:
+        total_dcg = 0.0
+        for qid in self._qids:
+            if self._idcg_map[qid] == 0.0:
+                continue
+
+            relevance, features = self._dataset.get_data_for_queries([qid])[0]
+            ranking = model.rank(params, torch.Tensor(features), sample=False)
+            total_dcg += self.calculate_ndcg_for_query_ranking(
+                qid, ranking, np.array(relevance))
+
+        return total_dcg / len(self._qids)
+    
+    def calculate_ndcg_for_query_ranking(self, qid, ranking, relevance) -> float:
+        idcg = self._idcg_map[qid]
+        ranking = ranking[:self._rank_cnt]
+        ranking_relevance = relevance[ranking]
+        n = len(ranking)
+        dcg = np.sum((2 ** ranking_relevance - 1) * self._dcg_weight[:n])
+        return dcg / idcg
 
 # Clip and add Gaussian noise to a torch tensor
 def apply_gaussian_mechanism(input, epsilon, delta, sensitivity):

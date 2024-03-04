@@ -3,11 +3,11 @@ import os.path
 import pandas as pd
 from tqdm import tqdm
 from typing import Dict, List, Tuple
-from sklearn.preprocessing import MinMaxScaler
+from sklearn.preprocessing import StandardScaler
 
 
 class LearningToRankDataset:
-    def __init__(self, path="", normalize=False):
+    def __init__(self, path="", normalize=False, mean=None, std=None):
         print(f"Loading {path}")
 
         rows = []
@@ -34,8 +34,20 @@ class LearningToRankDataset:
 
         if normalize:
             print("Normalizing...")
-            normalized = MinMaxScaler().fit_transform(df.loc[:, ~df.columns.isin(["qid", "relevance"])])
+            dat = df.loc[:, ~df.columns.isin(["qid", "relevance"])]
+            scaler = StandardScaler(copy=False)
+            if mean is not None and std is not None:
+                scaler.mean_ = mean
+                scaler.scale_ = std
+            else:
+                scaler.fit(dat)
+
+            normalized = scaler.transform(dat)
             df[df.loc[:, ~df.columns.isin(["qid", "relevance"])].columns] = normalized.astype('float32')
+            self.std = scaler.scale_
+            self.mean = scaler.mean_
+            del dat
+            del normalized
 
         print("Processing...")
         self.qids = df["qid"].unique().tolist()
