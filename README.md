@@ -1,6 +1,6 @@
 # RAIFLE: Reconstruction Attack on Interaction-based Federated Learning
 
-This is the repository for the paper "RAIFLE: Reconstruction Attack on Interaction-based Federated Learning". To reproduce our results, please follow the following steps:
+This is the repository for the paper RAIFLE: Reconstruction Attack on Interaction-based Federated Learning. To reproduce our results, please follow the following steps:
 
 ### Installation:
 
