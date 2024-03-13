@@ -1,6 +1,7 @@
 import itertools
 import random
 import torch
+import torch.autograd as autograd
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.func import grad, vmap
@@ -189,87 +190,19 @@ class NeuralCollaborativeFilteringRecommender(nn.Module):
         for layer in self.fc_layers:
             res = F.relu(layer(res))
         return F.sigmoid(self.final_layer(res))
-
-    def item_grad(self, user_embedding, item_embeddings, interactions):
-        for p in self.parameters():
-            p.requires_grad = False
-        def f(item_embeddings):
-            preds = self.forward(user_embedding, item_embeddings)
-            loss = F.binary_cross_entropy(preds.view(-1), interactions)
-            return loss
-        return grad(f)(item_embeddings)
     
-    def item_grad_using_backward(self, user_embedding, item_embeddings, interactions, retain_graph=False):
-        for p in self.parameters():
-            p.requires_grad = False
+    def item_grad(self, user_embedding, item_embeddings, interactions, create_graph=False):
+        self.eval()
+        item_embeddings.grad = None
         preds = self.forward(user_embedding, item_embeddings)
         loss = F.binary_cross_entropy(preds.view(-1), interactions)
-        loss.backward(retain_graph=retain_graph)
-        return item_embeddings.grad
+        return autograd.grad(loss, item_embeddings, create_graph=create_graph)[0]
     
-    def feature_grad(self, user_embedding, item_embeddings, interactions, retain_graph=False):
+    def feature_grad(self, user_embedding, item_embeddings, interactions, create_graph=False):
+        self.train()
         for p in self.parameters():
-            p.requires_grad = True
-            if p.grad is not None:
-                p.grad.zero_()
-        
+            p.grad = None
         preds = self.forward(user_embedding, item_embeddings)
         loss = F.binary_cross_entropy(preds.view(-1), interactions)
-        loss.backward(retain_graph=retain_graph)
-        
-        feature_grads = []
-        for p in self.parameters():
-            feature_grads.append(p.grad.clone().flatten())
-            p.grad.zero_()
-            p.requires_grad = False
-        
-        return torch.cat(feature_grads)
-
-if __name__ == "__main__":
-    num_features = 5
-    num_data = 100
-    # X = torch.rand(num_data, num_features)
-    # user_embedding = torch.rand(num_features)
-    X = torch.normal(0, 1, (num_data, num_features))
-    user_embedding = torch.normal(0, 1, (num_features,))
-
-    interactions = torch.randint(0, 2, (num_data,))
-    while interactions.sum() == 0 or interactions.sum() == num_data:
-        interactions = torch.randint(0, 2, (num_data,))
-    print(interactions)
-
-    # ranking = list(range(num_data))
-    # random.shuffle(ranking)
-    # ranking = torch.LongTensor(ranking)
-
-    # ranker = LinearPDGDRanker(num_features)
-    # print(ranker.grad(torch.rand(num_features), X, ranking, interactions))
-
-    # hidden_size = 2
-    # ranker2 = Neural1LayerPDGDRanker(num_features, hidden_size)
-    # print(
-    #     ranker2.grad(
-    #         torch.rand((num_features + 1) * hidden_size), X, ranking, interactions
-    #     )
-    # )
-
-    # hidden_size2 = 2
-    # ranker3 = Neural2LayerPDGDRanker(num_features, hidden_size, hidden_size2)
-    # print(
-    #     ranker3.grad(
-    #         torch.rand(
-    #             num_features * hidden_size + hidden_size * hidden_size2 + hidden_size2
-    #         ),
-    #         X,
-    #         ranking,
-    #         interactions,
-    #     )
-    # )
-    
-    # cf_rec = CollaborativeFilteringRecommender()
-    # print(cf_rec.federated_item_grad(user_embedding, X, interactions))
-
-    ncf_rec = NeuralCollaborativeFilteringRecommender(num_features, [4, 2])
-    print(list(ncf_rec.parameters()))
-    print(ncf_rec.item_grad(user_embedding, X, interactions.float()))
-    print(ncf_rec.feature_grad(user_embedding, X, interactions.float()))
+        grads = autograd.grad(loss, list(self.parameters()), create_graph=create_graph)
+        return torch.cat([t.flatten() for t in grads])
