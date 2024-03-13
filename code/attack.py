@@ -24,7 +24,7 @@ def reconstruct_interactions(
         prior_penalty = lambda _: torch.zeros(1)
 
     best_loss = math.inf
-    best_opt_params = torch.rand(num_items + private_params_size) * 2 - 1
+    best_opt_params = None
 
     for _ in range(num_rounds):
         opt_params = nn.Parameter(torch.rand(num_items + private_params_size) * 2 - 1)
@@ -39,7 +39,7 @@ def reconstruct_interactions(
                 else trainer(interactions, opt_params[num_items:])
             )
             loss = loss_func(shadow_params, target_params) + prior_penalty(interactions)
-            loss.backward()
+            loss.backward(inputs=[opt_params])
             return loss
 
         try:
@@ -59,6 +59,10 @@ def reconstruct_interactions(
         if cur_loss < best_loss:
             best_loss = cur_loss
             best_opt_params = opt_params.detach()
+
+    if best_opt_params is None:
+        print("Optimization failed! Defaulting to random guessing.")
+        best_opt_params = opt_params.detach()
 
     if private_params_size == 0:
         if return_raw:
