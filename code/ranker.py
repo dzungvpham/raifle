@@ -160,16 +160,13 @@ class Neural2LayerPDGDRanker(BasePDGDRanker):
 
 class CollaborativeFilteringRecommender(BaseRanker):
     def forward(self, user_embedding, item_embeddings):
-        return user_embedding.reshape(1, -1) @ item_embeddings.t()
+        return F.sigmoid(user_embedding.reshape(1, -1) @ item_embeddings.t())
 
-    def item_grad(
-        self, user_embedding, item_embeddings, interactions, alpha=0
-    ):
+    def item_grad(self, user_embedding, item_embeddings, interactions):
         user_embedding = user_embedding.reshape(1, -1)
         interactions = interactions.reshape(1, -1)
-        confidence = 1 + alpha * interactions
         fx = self.forward(user_embedding, item_embeddings)
-        return (confidence * (interactions - fx)).t() @ user_embedding
+        return (interactions - fx).t() @ user_embedding
 
 
 class NeuralCollaborativeFilteringRecommender(nn.Module):
