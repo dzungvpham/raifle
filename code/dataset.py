@@ -112,6 +112,20 @@ class MovieLens(RecommendationDataset):
         super().__init__(df, "user_id", "item_id", "rating")
 
 
+class Steam200K(RecommendationDataset):
+    def __init__(self, path="../dataset/STEAM-200K/steam-200k.csv"):
+        df = pd.read_csv(
+            path,
+            header=None,
+            names=["user_id", "item_id", "behavior"],
+            usecols=["user_id", "item_id", "behavior"],
+        )
+        df = df.drop_duplicates(subset=["user_id", "item_id"], ignore_index=True)
+        df["item_id"], _ = pd.factorize(df["item_id"])
+        df["rating"] = 1
+        super().__init__(df, "user_id", "item_id", "rating")
+
+
 class Goodreads(RecommendationDataset):
     def __init__(self, path="../dataset/Goodreads/goodreads_interactions.csv"):
         df = pd.read_csv(
