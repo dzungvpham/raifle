@@ -16,32 +16,32 @@ def reconstruct_interactions(
     target_params,
     num_items,
     private_params_size=0,
-    interaction_scale=1.0,
-    loss_func=F.mse_loss,
+    loss_fn=F.mse_loss,
     num_rounds=1,
     return_raw=False,
     prior_penalty=None,
+    device=torch.device("cpu"),
     **kwargs,
 ):
     if prior_penalty is None:
-        prior_penalty = lambda _: torch.zeros(1)
+        prior_penalty = lambda _: 0.0
 
     best_loss = math.inf
     best_opt_params = None
 
     for _ in range(num_rounds):
-        opt_params = nn.Parameter(torch.rand(num_items + private_params_size) * 2 - 1)
+        opt_params = nn.Parameter(torch.rand(num_items + private_params_size, device=device) * 2 - 1)
         optimizer = optim.LBFGS([opt_params], line_search_fn="strong_wolfe", **kwargs)
 
         def calc_loss():
             optimizer.zero_grad()
-            interactions = opt_params[:num_items].sigmoid() * interaction_scale
+            interactions = opt_params[:num_items].sigmoid()
             shadow_params = (
                 trainer(interactions)
                 if private_params_size == 0
                 else trainer(interactions, opt_params[num_items:])
             )
-            loss = loss_func(shadow_params, target_params) + prior_penalty(interactions)
+            loss = loss_fn(shadow_params, target_params) + prior_penalty(interactions)
             loss.backward(inputs=[opt_params])
             return loss
 
@@ -69,15 +69,15 @@ def reconstruct_interactions(
 
     if private_params_size == 0:
         if return_raw:
-            return (best_opt_params, best_loss)
+            return best_opt_params, best_loss
         else:
-            return ((interaction_scale * best_opt_params.sigmoid()).round().long(), best_loss)
+            return best_opt_params.sigmoid().round().long(), best_loss
     else:
         if return_raw:
-            return (best_opt_params[:num_items], best_opt_params[num_items:], best_loss)
+            return best_opt_params[:num_items], best_opt_params[num_items:], best_loss
         else:
             return (
-                (interaction_scale * best_opt_params[:num_items].sigmoid()).round().long(),
+                best_opt_params[:num_items].sigmoid().round().long(),
                 best_opt_params[num_items:],
                 best_loss,
             )
@@ -92,10 +92,11 @@ def reconstruct_interactions_functional(
     num_items,
     loss_fn=F.mse_loss,
     num_epochs=1,
+    device=torch.device("cpu"),
     **kwargs,
 ):
     optimizer = torchopt.FuncOptimizer(torchopt.adam(**kwargs))
-    opt_params = (nn.Parameter(torch.rand(num_items) * 2 - 1),)
+    opt_params = (nn.Parameter(torch.rand(num_items, device=device) * 2 - 1),)
     for _ in range(num_epochs):
         shadow_params = trainer(opt_params[0].sigmoid())
         loss = loss_fn(shadow_params, target_params)
