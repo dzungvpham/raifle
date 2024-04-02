@@ -92,10 +92,11 @@ def reconstruct_interactions_functional(
     num_items,
     loss_fn=F.mse_loss,
     num_epochs=1,
+    inplace=False,
     device=torch.device("cpu"),
     **kwargs,
 ):
-    optimizer = torchopt.FuncOptimizer(torchopt.adam(**kwargs))
+    optimizer = torchopt.FuncOptimizer(torchopt.adam(**kwargs), inplace=inplace)
     opt_params = (nn.Parameter(torch.rand(num_items, device=device) * 2 - 1),)
     for _ in range(num_epochs):
         shadow_params = trainer(opt_params[0].sigmoid())
@@ -289,6 +290,55 @@ def optimize_ltr_data_manipulation_grad(
         pbar.set_description(f"Loss: {round(loss.detach().item(), 3)}")
 
     return perturb.detach(), masks
+
+
+def optimize_image_manipulation(
+    data, target, feature_extractor,
+    max_epochs=100,
+    early_stop=1e-03,
+    linf_factor=0.0,
+    progress_bar=False,
+    **kwargs,
+):
+    opt_data = torch.clone(data).requires_grad_(True)
+    optimizer = optim.Adam([opt_data], **kwargs)
+    max_vals = [(1.0 - 0.485)/0.229, (1.0 - 0.456)/0.224, (1.0 - 0.406)/0.225]
+    min_vals = [-0.485/0.229, -0.456/0.224, -0.406/0.225]
+
+    iterator = tqdm(range(max_epochs)) if progress_bar else range(max_epochs)
+    for _ in iterator:
+        optimizer.zero_grad()
+        extracted_features = feature_extractor(opt_data)
+        linf_loss = linf_factor * torch.linalg.vector_norm(opt_data - data, ord=float('inf'))
+        loss = F.mse_loss(extracted_features, target) + linf_loss
+        loss.backward(inputs=[opt_data])
+        optimizer.step()
+        with torch.no_grad():
+            for c in range(3):
+                opt_data[:, c].clip_(min = min_vals[c], max=max_vals[c])
+        if progress_bar:
+            iterator.set_description(f"Loss: {round(loss.detach().item(), 5)}")
+
+        if early_stop is not None and loss.item() < early_stop:
+            break
+
+    return opt_data.detach()
+
+
+def optimize_image_manipulation_batches(
+    data, target, feature_extractor, batch_size=128, **kwargs,
+):
+    num_data = data.shape[0]
+    num_batches = int(math.ceil(num_data / batch_size))
+    batch_res = []
+    for i in range(num_batches):
+        start = i * batch_size
+        end = start + batch_size
+        batch_data = data[start:end,:]
+        batch_target = target[start:end,:]
+        batch_opt = optimize_image_manipulation(batch_data, batch_target, feature_extractor, **kwargs)
+        batch_res.append(batch_opt)
+    return torch.vstack(batch_res)
 
 
 # Adaptation of IMIA code from https://github.com/hi-weiyuan/FedRec_IMIA/
