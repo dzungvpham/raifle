@@ -295,6 +295,7 @@ def optimize_ltr_data_manipulation_grad(
 def optimize_image_manipulation(
     data, target, feature_extractor,
     max_epochs=100,
+    loss_fn=F.mse_loss,
     early_stop=1e-03,
     linf_factor=0.0,
     progress_bar=False,
@@ -310,7 +311,7 @@ def optimize_image_manipulation(
         optimizer.zero_grad()
         extracted_features = feature_extractor(opt_data)
         linf_loss = linf_factor * torch.linalg.vector_norm(opt_data - data, ord=float('inf'))
-        loss = F.mse_loss(extracted_features, target) + linf_loss
+        loss = loss_fn(extracted_features, target) + linf_loss
         loss.backward(inputs=[opt_data])
         optimizer.step()
         with torch.no_grad():
