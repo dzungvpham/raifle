@@ -81,7 +81,33 @@ def reconstruct_interactions(
                 best_opt_params[num_items:],
                 best_loss,
             )
-        
+
+def reconstruct_interactions_adam(
+    trainer,
+    target_params,
+    num_items,
+    loss_fn=F.mse_loss,
+    num_epochs=1,
+    device=torch.device("cpu"),
+    **kwargs,
+):
+    opt_params = nn.Parameter(torch.rand(num_items, device=device) * 2 - 1)
+    optimizer = optim.Adam([opt_params], **kwargs)
+    best_loss = math.inf
+    best_params = None
+    for i in range(num_epochs+1):
+        optimizer.zero_grad()
+        shadow_params = trainer(opt_params.sigmoid())
+        loss = loss_fn(shadow_params, target_params)
+        if loss.item() < best_loss:
+            best_loss = loss.item()
+            best_params = opt_params.detach()
+        if i == num_epochs:
+            break
+        loss.backward(inputs=[opt_params])
+        optimizer.step()
+    return best_params
+
 
 """
     Functional reconstruction without in-place modification for optimized ADM
