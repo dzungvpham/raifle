@@ -89,19 +89,23 @@ def reconstruct_interactions_adam(
     loss_fn=F.mse_loss,
     num_epochs=1,
     device=torch.device("cpu"),
+    progress_bar=False,
     **kwargs,
 ):
     opt_params = nn.Parameter(torch.rand(num_items, device=device) * 2 - 1)
     optimizer = optim.Adam([opt_params], **kwargs)
     best_loss = math.inf
     best_params = None
-    for i in range(num_epochs+1):
+    iterator = tqdm(range(num_epochs+1)) if progress_bar else range(num_epochs+1)
+    for i in iterator:
         optimizer.zero_grad()
         shadow_params = trainer(opt_params.sigmoid())
         loss = loss_fn(shadow_params, target_params)
         if loss.item() < best_loss:
             best_loss = loss.item()
             best_params = opt_params.detach()
+        if progress_bar:
+            iterator.set_description(f"Loss: {round(loss.detach().item(), 5)}")
         if i == num_epochs:
             break
         loss.backward(inputs=[opt_params])
