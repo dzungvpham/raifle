@@ -19,10 +19,11 @@ After downloading the data below, you should unzip them in the `dataset` folder.
 
 ### Files:
 
-- `attack.py`: Our implementation of the RAIFLE attack. If you want to change the optimizer from L-BFGS to something else, make sure to write a loop with some termination conditions like loss threshold not exceeded.
-- `ranker.py`: Our implementation of the FPDGD algorithm and the FCF/FNCF algorithm.
+- `attack.py`: Our implementation of the RAIFLE attack.
+- `ranker.py`: Our implementation of the FPDGD algorithm and the FNCF algorithm.
 - `dataset.py`: Code to load and preprocess dataset.
 - `utils.py`: Contains code for metrics, differential privacy, and OLTR click models
 - `experiment_ltr.ipynb`: Experiments for Learning to Rank.
+- `experiment_ltr_cv.ipynb`: Experiments for Learning to Rank with image-based data.
 - `experiment_rec.ipynb`: Experiments for Recommender Systems.
-- `plot.ipynb`: Code for generating plots and numbers (e.g. k-s p-values)
+- `plot.ipynb`: Code for generating plots and numbers
