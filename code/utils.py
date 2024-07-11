@@ -89,7 +89,7 @@ class CascadeClickModel(ClickModel):
                 if clicks[i] and np.random.rand() < self.prob_stop[r]:
                     break
             
-            if (not filter_all_or_zero or ((np.any(clicks)) and not np.all(clicks))):
+            if (not filter_all_or_zero or (np.any(clicks) and not np.all(clicks))):
                 break
 
         return clicks
