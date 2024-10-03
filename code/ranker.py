@@ -1,5 +1,4 @@
 import itertools
-import random
 import torch
 import torch.autograd as autograd
 import torch.nn as nn
@@ -170,14 +169,14 @@ class CollaborativeFilteringRecommender(BaseRanker):
 
 
 class NeuralCollaborativeFilteringRecommender(nn.Module):
-    def __init__(self, embedding_size, hidden_sizes):
+    def __init__(self, embedding_size, hidden_sizes, bias=True):
         super().__init__()
-        self.first_layer = nn.Linear(embedding_size * 2, hidden_sizes[0])
+        self.first_layer = nn.Linear(embedding_size * 2, hidden_sizes[0], bias=bias)
         self.fc_layers = []
         for i in range(len(hidden_sizes) - 1):
-            self.fc_layers.append(nn.Linear(hidden_sizes[i], hidden_sizes[i + 1]))
+            self.fc_layers.append(nn.Linear(hidden_sizes[i], hidden_sizes[i + 1], bias=bias))
         self.fc_layers = nn.ModuleList(self.fc_layers)
-        self.final_layer = nn.Linear(hidden_sizes[-1], 1)
+        self.final_layer = nn.Linear(hidden_sizes[-1], 1, bias=bias)
 
     def forward(self, user_embedding, item_embeddings):
         embeddings = torch.cat(
