@@ -1,6 +1,6 @@
 # RAIFLE: Reconstruction Attack on Interaction-based Federated Learning with Adversarial Data Manipulation
 
-This is the repository for our paper RAIFLE: Reconstruction Attack on Interaction-based Federated Learning with Adversarial Data Manipulation.
+This is the repository for our paper [RAIFLE: Reconstruction Attack on Interaction-based Federated Learning with Adversarial Data Manipulation](https://www.ndss-symposium.org/ndss-paper/raifle-reconstruction-attacks-on-interaction-based-federated-learning-with-adversarial-data-manipulation/) (NDSS 2025).
 We improve the performance of reconstruction attacks against federated recommendation and learning to rank systems by manipulating the training features of the recommendation/ranking items.
 To reproduce our results in the paper, please follow the following steps:
 
@@ -83,3 +83,20 @@ All of our experiment code are in IPython Jupyter notebooks. We recommend using 
     - Run cell #1, 2, and 3 in `experiment_ltr.ipynb`. Make sure to set `alphas = [0.5, 0.75]` in cell #3, as this controls the % of features that the server can manipulate.
   - Manipulated image quality:
     - Run cell #1, 2, and 6 of `experiment_ltr_cv.ipynb`.
+
+### Citation
+
+Here's the BibTex for our paper:
+
+```
+@inproceedings{pham2025raifle,
+  title={RAIFLE: Reconstruction Attacks on Interaction-based Federated Learning with Adversarial Data Manipulation},
+  author={Pham, Dzung and Kulkarni, Shreyas and Houmansadr, Amir},
+  booktitle={32nd Annual Network and Distributed System Security Symposium (NDSS 2025)},
+  year={2025},
+  doi={10.14722/ndss.2025.240363},
+  url={https://dx.doi.org/10.14722/ndss.2025.240363},
+  address={San Diego, CA, USA},
+  publisher={The Internet Society}
+}
+```
