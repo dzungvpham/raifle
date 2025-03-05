@@ -90,7 +90,7 @@ Here's the BibTex for our paper:
 
 ```
 @inproceedings{pham2025raifle,
-  title={RAIFLE: Reconstruction Attacks on Interaction-based Federated Learning with Adversarial Data Manipulation},
+  title={{RAIFLE}: Reconstruction Attacks on Interaction-based Federated Learning with Adversarial Data Manipulation},
   author={Pham, Dzung and Kulkarni, Shreyas and Houmansadr, Amir},
   booktitle={32nd Annual Network and Distributed System Security Symposium (NDSS 2025)},
   year={2025},
